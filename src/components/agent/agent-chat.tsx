@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePostHog } from "posthog-js/react";
 
 interface AgentMessage {
   id: string;
@@ -40,6 +41,7 @@ export function AgentChat({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const posthog = usePostHog();
 
   const refresh = useCallback(async () => {
     try {
@@ -79,6 +81,7 @@ export function AgentChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sellerId, sellerName, role: "seller", text }),
       });
+      posthog?.capture("agent_question_sent", { sellerId });
       await refresh();
     } catch {
       setDraft(text); // restore on failure
@@ -98,6 +101,13 @@ export function AgentChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sellerId, messageId, helpful, willImplement }),
       });
+      // Core OST metric: willImplement=true → seller intends to act on the advice.
+      posthog?.capture("agent_survey_submitted", {
+        sellerId,
+        messageId,
+        helpful,
+        willImplement,
+      });
       await refresh();
     } catch {
       // ignore; user can retry
@@ -109,11 +119,18 @@ export function AgentChat({
   const hasSurvey = (messageId: string) =>
     surveys.some((s) => s.messageId === messageId);
 
+  function openChat() {
+    // Tie all events + session replay to this specific seller (n=10 analysis).
+    posthog?.identify(sellerId, { sellerName });
+    posthog?.capture("agent_chat_opened", { sellerId, sellerName });
+    setOpen(true);
+  }
+
   if (!open) {
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openChat}
         className="btn-cta"
       >
         Chat z agentem partnerem
