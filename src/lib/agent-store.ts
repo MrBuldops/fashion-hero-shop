@@ -138,6 +138,20 @@ export async function appendMessage(
   return message;
 }
 
+export async function resetAll(): Promise<number> {
+  const redis = getRedis();
+  if (redis) {
+    const ids = await redis.smembers(SELLERS_KEY);
+    if (ids.length) await redis.del(...ids.map(convKey));
+    await redis.del(SELLERS_KEY);
+    return ids.length;
+  }
+  const store = await readFileStore();
+  const count = Object.keys(store.conversations).length;
+  await writeFileStore({ conversations: {} });
+  return count;
+}
+
 export async function addSurvey(
   sellerId: string,
   messageId: string,
