@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 import { AnnouncementBar } from "./announcement-bar";
 import { Header } from "./header";
 import { Footer } from "./footer";
@@ -8,9 +10,18 @@ import { WishlistProvider, useWishlist } from "./wishlist-provider";
 import { QuickViewProvider } from "./quick-view-provider";
 import { AuthProvider } from "./auth-provider";
 
+// Standalone tools (seller panel, analyst inbox) render their own full-screen
+// layout, so skip the storefront chrome (announcement bar / header / footer).
+const BARE_PREFIXES = ["/seller", "/inbox"];
+
 function ShellInner({ children }: { children: React.ReactNode }) {
   const { openCart, itemCount } = useCart();
   const { wishlistItems } = useWishlist();
+  const pathname = usePathname();
+
+  if (BARE_PREFIXES.some((prefix) => pathname?.startsWith(prefix))) {
+    return <main className="flex-1">{children}</main>;
+  }
 
   return (
     <>
